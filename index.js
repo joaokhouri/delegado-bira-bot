@@ -12,6 +12,8 @@ const {
   ButtonBuilder,
   ButtonStyle,
 } = require('discord.js');
+const { initializeTwitchNotifier } = require('./utils/twitchNotifier');
+const categoryNames = require('./utils/commandCategories');
 
 // Pega o token do seu arquivo de configuração (se tiver, senão, coloque o token aqui)
 // const { token } = require('./config.json');
@@ -44,21 +46,18 @@ const commandFolders = fs.readdirSync(commandsPath);
 
 // Loop para entrar em cada subpasta (ex: 'moderacao', 'utilidade')
 for (const folder of commandFolders) {
-  // Constrói o caminho para a subpasta atual
   const folderPath = path.join(commandsPath, folder);
-  // Lê todos os arquivos .js que estão DENTRO da subpasta atual
   const commandFiles = fs.readdirSync(folderPath).filter((file) => file.endsWith('.js'));
 
-  // Loop para carregar cada arquivo de comando
   for (const file of commandFiles) {
-    // Constrói o caminho completo para o arquivo de comando
     const filePath = path.join(folderPath, file);
     const command = require(filePath);
 
-    // Verifica se o comando tem 'data' e 'execute' e o adiciona à coleção
     if ('data' in command && 'execute' in command) {
+      // A LINHA NOVA E IMPORTANTE ESTÁ AQUI:
+      command.category = folder; // Adicionamos a categoria ao objeto do comando
+
       client.commands.set(command.data.name, command);
-      // Atualizei o log para mostrar de qual pasta o comando veio!
       console.log(`[Comando Carregado] /${command.data.name} (da pasta: ${folder})`);
     } else {
       console.log(
@@ -205,6 +204,33 @@ client.on('interactionCreate', async (interaction) => {
       });
     }
   }
+
+  // --- LÓGICA NOVA PARA MENUS DE SELEÇÃO ---
+  if (interaction.isStringSelectMenu()) {
+    if (interaction.customId === 'ajuda-menu') {
+      const selectedCategory = interaction.values[0];
+      const commands = interaction.client.commands;
+      const commandsInCategory = commands.filter((cmd) => cmd.category === selectedCategory);
+
+      // ===== A MUDANÇA ESTÁ AQUI =====
+      // Usamos nosso dicionário importado para pegar o nome bonito
+      const prettyCategoryName =
+        categoryNames[selectedCategory] ||
+        selectedCategory.charAt(0).toUpperCase() + selectedCategory.slice(1);
+
+      const categoryEmbed = new EmbedBuilder()
+        .setColor('#0099ff')
+        // E usamos o nome bonito no título!
+        .setTitle(`Categoria: ${prettyCategoryName}`)
+        .setDescription(
+          commandsInCategory
+            .map((cmd) => `\`/${cmd.data.name}\`: ${cmd.data.description}`)
+            .join('\n')
+        );
+
+      await interaction.update({ embeds: [categoryEmbed] });
+    }
+  }
 });
 
 // =======================================================
@@ -219,4 +245,7 @@ process.on('uncaughtException', (error) => {
 });
 
 // Faz o login do bot
-client.login(TOKEN);
+client.login(TOKEN).then(() => {
+  // Depois que o login for bem-sucedido, inicia o vigia da Twitch
+  initializeTwitchNotifier(client);
+});

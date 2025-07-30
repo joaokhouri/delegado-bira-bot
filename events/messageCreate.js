@@ -2,46 +2,62 @@ module.exports = {
   name: 'messageCreate',
 
   async execute(message, client) {
-    // As verificações de segurança continuam as mesmas
-    if (message.author.bot) return;
-    if (!message.guild) return;
+    if (message.author.bot || !message.guild) return;
 
     // =======================================================
-    // 1. O DICIONÁRIO DO DELEGADO
-    // Adicione novas palavras e respostas aqui!
-    // A "chave" é a palavra a ser procurada (em minúsculas).
-    // O "valor" é a resposta que o bot vai dar.
+    // DICIONÁRIO APRIMORADO DO DELEGADO BIRA
+    // Agora ele suporta texto, respostas aleatórias e reações.
     // =======================================================
     const keywordResponses = {
-      // prettier-ignore
-      'delegado': 'Chamou, cidadão? Estou de plantão. Se precisar de ajuda com os comandos, use `/ajuda`.',
-      'bom dia': `Bom dia! Mantenha a ordem na comarca e o respeito aos seus concidadãos.`,
-      'boa noite': `Boa noite. Patrulha noturna em andamento. Descansem, cidadãos de bem.`,
-      'obrigado bira': `De nada, cidadão. É meu dever servir e proteger esta comunidade.`,
-      // prettier-ignore
-      'servidor': 'Para informações oficiais sobre esta comarca, use o comando `/serverinfo`.', // <-- NOVA LINHA
+      // --- Respostas de Texto Simples (string) ---
+      //prettier-ignore
+      'delegado': 'Chamou, meu querido? Estou de plantão. Se precisar de ajuda com os comandos, use `/ajuda`.', //prettier-ignore
+      'boa noite': `Boa noite. Patrulha noturna em andamento. Circulando.`, //prettier-ignore
+
+      // --- Respostas Aleatórias (array de strings) ---
+      'e ai bira': [
+        'Opa, tudo em ordem por aqui.',
+        'Na escuta, cidadão.',
+        'Fala, chefe. Tudo tranquilo?',
+      ],
+      'bom dia': [
+        'Bom dia campeão!',
+        'Um bom dia a todos os cidadãos de bem.',
+        'Bom dia! vamos acordar.',
+      ],
+
+      // --- Reações com Emoji (objeto) ---
+      'amo esse server': { type: 'react', value: '❤️' }, //prettier-ignore
+      'kkkk': { type: 'react', value: '😂' }, //prettier-ignore
+      'obrigado': { type: 'react', value: '🙏' }, //prettier-ignore
+      'parabéns': { type: 'react', value: '🎉' }, //prettier-ignore
     };
 
-    // =======================================================
-    // 2. A PATRULHA (A LÓGICA DE VERIFICAÇÃO)
-    // =======================================================
-
-    // Pega o conteúdo da mensagem e converte para minúsculas uma única vez
     const lowerCaseMessage = message.content.toLowerCase();
 
     // Loop que verifica cada entrada do nosso dicionário
     for (const keyword in keywordResponses) {
-      // Verifica se a mensagem INCLUI a palavra-chave
       if (lowerCaseMessage.includes(keyword)) {
-        // Se encontrar, envia a resposta correspondente
+        const response = keywordResponses[keyword];
+
         try {
-          await message.reply(keywordResponses[keyword]);
+          // Verificamos o TIPO de resposta que devemos dar
+          if (Array.isArray(response)) {
+            // Se for um array, pegamos uma resposta aleatória
+            const randomIndex = Math.floor(Math.random() * response.length);
+            await message.reply(response[randomIndex]);
+          } else if (typeof response === 'object' && response.type === 'react') {
+            // Se for um objeto do tipo 'react', reagimos com o emoji
+            await message.react(response.value);
+          } else {
+            // Se for qualquer outra coisa (uma string de texto), respondemos normalmente
+            await message.reply(response);
+          }
         } catch (error) {
-          console.error('Erro ao tentar responder a uma palavra-chave:', error);
+          console.error('Erro ao tentar interagir com mensagem:', error);
         }
 
-        // IMPORTANTE: Encerra a execução para não responder a múltiplas palavras na mesma mensagem
-        return;
+        return; // Encerra após a primeira correspondência
       }
     }
   },
