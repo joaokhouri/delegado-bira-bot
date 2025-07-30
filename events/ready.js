@@ -28,6 +28,6 @@ module.exports = {
 
       // Define a atividade sorteada
       client.user.setActivity(randomActivity.name, { type: randomActivity.type });
-    }, 15000); // 15000 milissegundos = 15 segundos
+    }, 300000); // 300000 milissegundos = 5 minutos
   },
 };

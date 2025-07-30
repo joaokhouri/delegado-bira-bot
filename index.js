@@ -14,6 +14,7 @@ const {
 } = require('discord.js');
 const { initializeTwitchNotifier } = require('./utils/twitchNotifier');
 const categoryNames = require('./utils/commandCategories');
+const { initializeDatabase } = require('./utils/database');
 
 // Pega o token do seu arquivo de configuração (se tiver, senão, coloque o token aqui)
 // const { token } = require('./config.json');
@@ -245,7 +246,9 @@ process.on('uncaughtException', (error) => {
 });
 
 // Faz o login do bot
-client.login(TOKEN).then(() => {
+client.login(TOKEN).then(async () => {
+  // Inicia o banco de dados
+  await initializeDatabase();
   // Depois que o login for bem-sucedido, inicia o vigia da Twitch
   initializeTwitchNotifier(client);
 });

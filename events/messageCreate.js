@@ -5,6 +5,54 @@ module.exports = {
     if (message.author.bot || !message.guild) return;
 
     // =======================================================
+    // LÓGICA DE GANHO DE XP
+    // =======================================================
+    try {
+      const cooldownAmount = 60000; // Cooldown de 60 segundos (em milissegundos)
+      const userId = message.author.id;
+      const guildId = message.guild.id;
+
+      // Verifica se o usuário está na coleção de cooldowns
+      if (!xpCooldowns.has(userId)) {
+        // Se não estiver, adiciona XP
+        let user = await getUser(userId, guildId);
+
+        // Se o usuário não existir no banco de dados, cria um perfil padrão para ele
+        if (!user) {
+          user = { userId, guildId, xp: 0, level: 1 };
+        }
+
+        // Adiciona uma quantidade aleatória de XP (entre 15 e 25)
+        const xpGained = Math.floor(Math.random() * 11) + 15;
+        user.xp += xpGained;
+
+        // Calcula o XP necessário para o próximo nível
+        const xpToNextLevel = user.level * 300;
+
+        // Verifica se o usuário subiu de nível
+        if (user.xp >= xpToNextLevel) {
+          user.level++;
+          // Opcional: Reseta o XP para o que sobrou após subir de nível
+          // user.xp = user.xp - xpToNextLevel;
+
+          // Envia uma mensagem de parabéns no canal
+          await message.channel.send(
+            `🎉 **Promoção!** Parabéns, ${message.author}! Você foi promovido a **Nível ${user.level}** na hierarquia do Terreiro!`
+          );
+        }
+
+        // Atualiza as informações do usuário no banco de dados
+        await updateUser(userId, guildId, user.xp, user.level);
+
+        // Coloca o usuário no cooldown
+        xpCooldowns.set(userId, Date.now());
+        setTimeout(() => xpCooldowns.delete(userId), cooldownAmount); // Remove do cooldown após 60 segundos
+      }
+    } catch (error) {
+      console.error('[XP System] Erro ao processar XP para o usuário:', error);
+    }
+
+    // =======================================================
     // DICIONÁRIO APRIMORADO DO DELEGADO BIRA
     // Agora ele suporta texto, respostas aleatórias e reações.
     // =======================================================
