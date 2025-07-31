@@ -1,5 +1,5 @@
 // Importa as classes necessárias e o 'fs' para ler arquivos
-require('dotenv').config(); // Carrega as variáveis de ambiente do arquivo .env
+require('dotenv').config();
 const fs = require('fs');
 const {
   Client,
@@ -11,15 +11,15 @@ const {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
+  StringSelectMenuBuilder, // Garante que StringSelectMenuBuilder está aqui
 } = require('discord.js');
 const { initializeTwitchNotifier } = require('./utils/twitchNotifier');
 const categoryNames = require('./utils/commandCategories');
 const { initializeDatabase } = require('./utils/database');
 
-// Pega o token do seu arquivo de configuração (se tiver, senão, coloque o token aqui)
-// const { token } = require('./config.json');
+const path = require('path');
+
 const TOKEN = process.env.TOKEN;
-const PREFIX = '!';
 
 // Cria a instância do bot com as permissões (Intents)
 const client = new Client({
@@ -28,36 +28,25 @@ const client = new Client({
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
     GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.GuildVoiceStates,
   ],
 });
 
 // =================================================================
-// COMMAND HANDLER (VERSÃO ATUALIZADA PARA LER SUBPASTAS)
+// HANDLERS (Comandos e Eventos do Discord)
 // =================================================================
-
-// Importa os módulos 'path' e 'fs' no topo do seu index.js, junto com os outros 'require'
-const path = require('path');
-
-client.commands = new Collection(); // A coleção de comandos continua a mesma
-
-// Constrói o caminho para a pasta 'commands' de forma segura
+// Command Handler
+client.commands = new Collection();
 const commandsPath = path.join(__dirname, 'commands');
-// Lê o nome de todas as subpastas dentro de 'commands'
 const commandFolders = fs.readdirSync(commandsPath);
-
-// Loop para entrar em cada subpasta (ex: 'moderacao', 'utilidade')
 for (const folder of commandFolders) {
   const folderPath = path.join(commandsPath, folder);
   const commandFiles = fs.readdirSync(folderPath).filter((file) => file.endsWith('.js'));
-
   for (const file of commandFiles) {
     const filePath = path.join(folderPath, file);
     const command = require(filePath);
-
     if ('data' in command && 'execute' in command) {
-      // A LINHA NOVA E IMPORTANTE ESTÁ AQUI:
-      command.category = folder; // Adicionamos a categoria ao objeto do comando
-
+      command.category = folder;
       client.commands.set(command.data.name, command);
       console.log(`[Comando Carregado] /${command.data.name} (da pasta: ${folder})`);
     } else {
@@ -67,19 +56,13 @@ for (const folder of commandFolders) {
     }
   }
 }
-
-// =================================================================
-// EVENT HANDLER (O ORGANIZADOR DA GAVETA DE EVENTOS)
-// =================================================================
+// Event Handler
 const eventFiles = fs.readdirSync('./events').filter((file) => file.endsWith('.js'));
-
 for (const file of eventFiles) {
   const event = require(`./events/${file}`);
   if (event.once) {
-    // Se o evento for para rodar só uma vez (como o 'ready')
     client.once(event.name, (...args) => event.execute(...args, client));
   } else {
-    // Para eventos que podem rodar várias vezes (como 'messageCreate')
     client.on(event.name, (...args) => event.execute(...args, client));
   }
   console.log(`[Evento Carregado] ${event.name}.js`);
@@ -89,166 +72,192 @@ for (const file of eventFiles) {
 // LÓGICA PRINCIPAL UNIFICADA PARA INTERAÇÕES
 // =================================================================
 client.on('interactionCreate', async (interaction) => {
-  // Bloco único para tratar COMANDOS DE BARRA
+  // --- LIDA COM COMANDOS DE BARRA ---
   if (interaction.isChatInputCommand()) {
     const command = interaction.client.commands.get(interaction.commandName);
-
-    if (!command) {
-      console.error(`Nenhum comando correspondendo a ${interaction.commandName} foi encontrado.`);
-      return;
-    }
-
+    if (!command) return;
     try {
       await command.execute(interaction);
     } catch (error) {
       console.error(`Erro ao executar o comando ${interaction.commandName}:`, error);
-
-      // Lógica de diagnóstico de erros que já criamos
+      const errorMessage = 'Ocorreu um erro inesperado ao processar o comando!';
       if (error.code === 10013) {
-        // Unknown User
-        await interaction.reply({
-          content:
-            '🕵️‍♂️ **Usuário não encontrado.** Verifique se o ID está correto ou se o membro já foi desbanido.',
-          flags: [MessageFlags.Ephemeral],
-        });
+        errorMessage =
+          '🕵️‍♂️ **Usuário não encontrado.** Verifique se o ID está correto ou se o membro já foi desbanido.';
+      }
+      if (interaction.replied || interaction.deferred) {
+        await interaction.followUp({ content: errorMessage, flags: [MessageFlags.Ephemeral] });
       } else {
-        // Para todos os outros erros, usamos a mensagem genérica
-        if (interaction.replied || interaction.deferred) {
-          await interaction.followUp({
-            content: 'Ocorreu um erro inesperado ao processar o comando!',
-            flags: [MessageFlags.Ephemeral],
-          });
-        } else {
-          await interaction.reply({
-            content: 'Ocorreu um erro inesperado ao processar o comando!',
-            flags: [MessageFlags.Ephemeral],
-          });
-        }
+        await interaction.reply({ content: errorMessage, flags: [MessageFlags.Ephemeral] });
       }
     }
-    return; // Retorna para garantir que não prossiga para a lógica de botões
+    return;
   }
 
-  // Bloco único para tratar BOTÕES
-  if (interaction.isButton()) {
-    const [action, type, userId] = interaction.customId.split('-');
-
-    if (type !== 'unban') return;
-
-    if (!interaction.member.permissions.has(PermissionsBitField.Flags.BanMembers)) {
-      return interaction.reply({
-        content: 'Você não tem permissão para votar nesta revisão.',
-        flags: [MessageFlags.Ephemeral],
-      });
-    }
-
-    const originalMessage = interaction.message;
-    const originalEmbed = originalMessage.embeds[0];
-    const editedEmbed = EmbedBuilder.from(originalEmbed);
-    let votersField = editedEmbed.data.fields.find((field) => field.name === 'Votos para Aprovar');
-    let currentVoters = votersField.value.split('\n').filter((v) => v !== 'Nenhum');
-
-    if (currentVoters.includes(interaction.user.tag)) {
-      return interaction.reply({
-        content: 'Você já registrou seu voto nesta revisão.',
-        flags: [MessageFlags.Ephemeral],
-      });
-    }
-
-    if (action === 'approve') {
-      currentVoters.push(interaction.user.tag);
-      votersField.value = currentVoters.join('\n');
-      await originalMessage.edit({ embeds: [editedEmbed] });
-      await interaction.reply({
-        content: 'Seu voto para **APROVAR** foi registrado.',
-        flags: [MessageFlags.Ephemeral],
-      });
-
-      const votesRequired = parseInt(process.env.VOTES_REQUIRED_FOR_UNBAN);
-      if (currentVoters.length >= votesRequired) {
-        try {
-          const userToUnban = await interaction.client.users.fetch(userId);
-          await interaction.guild.members.unban(userId);
-          editedEmbed
-            .setColor('#00FF00')
-            .setTitle(`✅ APROVADO: Revisão de Banimento para ${userToUnban.tag}`)
-            .setFooter({ text: `Decisão finalizada.` });
-          const disabledButtons = ActionRowBuilder.from(
-            originalMessage.components[0]
-          ).setComponents(
-            originalMessage.components[0].components.map((button) =>
-              ButtonBuilder.from(button).setDisabled(true)
-            )
-          );
-          await originalMessage.edit({ embeds: [editedEmbed], components: [disabledButtons] });
-        } catch (error) {
-          console.error(error);
-          await interaction.channel.send(
-            'Houve um erro ao tentar desbanir o usuário após a aprovação.'
-          );
-        }
-      }
-    } else if (action === 'reject') {
-      editedEmbed
-        .setColor('#FF0000')
-        .setTitle(`❌ REJEITADO: Revisão de Banimento`)
-        .setFooter({ text: `Revisão encerrada por ${interaction.user.tag}.` });
-      const disabledButtons = ActionRowBuilder.from(originalMessage.components[0]).setComponents(
-        originalMessage.components[0].components.map((button) =>
-          ButtonBuilder.from(button).setDisabled(true)
-        )
-      );
-      await originalMessage.edit({ embeds: [editedEmbed], components: [disabledButtons] });
-      await interaction.reply({
-        content: 'Você votou para **REJEITAR**. A proposta foi encerrada.',
-        flags: [MessageFlags.Ephemeral],
-      });
-    }
-  }
-
-  // --- LÓGICA NOVA PARA MENUS DE SELEÇÃO ---
+  // --- LIDA COM MENUS DE SELEÇÃO ---
   if (interaction.isStringSelectMenu()) {
     if (interaction.customId === 'ajuda-menu') {
       const selectedCategory = interaction.values[0];
       const commands = interaction.client.commands;
       const commandsInCategory = commands.filter((cmd) => cmd.category === selectedCategory);
-
-      // ===== A MUDANÇA ESTÁ AQUI =====
-      // Usamos nosso dicionário importado para pegar o nome bonito
       const prettyCategoryName =
         categoryNames[selectedCategory] ||
         selectedCategory.charAt(0).toUpperCase() + selectedCategory.slice(1);
-
       const categoryEmbed = new EmbedBuilder()
         .setColor('#0099ff')
-        // E usamos o nome bonito no título!
         .setTitle(`Categoria: ${prettyCategoryName}`)
         .setDescription(
           commandsInCategory
             .map((cmd) => `\`/${cmd.data.name}\`: ${cmd.data.description}`)
             .join('\n')
         );
-
       await interaction.update({ embeds: [categoryEmbed] });
+    }
+    return;
+  }
+
+  // --- LIDA COM BOTÕES ---
+  if (interaction.isButton()) {
+    const customId = interaction.customId;
+
+    // Lógica para botões de música
+    if (customId.startsWith('music_')) {
+      const queue = interaction.client.distube.getQueue(interaction.guildId);
+      if (!queue)
+        return interaction.reply({
+          content: 'A playlist do Bira já terminou.',
+          flags: [MessageFlags.Ephemeral],
+        });
+      if (
+        !interaction.member.voice.channel ||
+        interaction.member.voice.channel.id !== queue.voiceChannel.id
+      ) {
+        return interaction.reply({
+          content: 'Você precisa estar no mesmo canal de voz que o Bira para usar os controles!',
+          flags: [MessageFlags.Ephemeral],
+        });
+      }
+
+      switch (customId) {
+        case 'music_pause_resume':
+          if (queue.paused) {
+            queue.resume();
+            await interaction.reply({
+              content: '▶️ O Bira voltou pro play!',
+              flags: [MessageFlags.Ephemeral],
+            });
+          } else {
+            queue.pause();
+            await interaction.reply({
+              content: '⏸️ O Bira foi tomar um café. Música pausada.',
+              flags: [MessageFlags.Ephemeral],
+            });
+          }
+          break;
+        case 'music_skip':
+          if (queue.songs.length <= 1)
+            return interaction.reply({
+              content: 'Não há próxima música para pular.',
+              flags: [MessageFlags.Ephemeral],
+            });
+          await queue.skip();
+          await interaction.deferUpdate(); // Apenas confirma o clique, o evento 'playSong' fará o resto
+          break;
+        case 'music_stop':
+          await queue.stop();
+          await interaction.message.edit({ components: [] }); // Remove os botões da mensagem
+          await interaction.reply({
+            content: '⏹️ Fim da festa. O Bira limpou a pista e guardou os discos.',
+            flags: [MessageFlags.Ephemeral],
+          });
+          break;
+      }
+    }
+
+    // Lógica para botões de unban
+    if (customId.startsWith('approve-unban') || customId.startsWith('reject-unban')) {
+      // (Toda a sua lógica de votação do unban que já fizemos antes continua aqui, sem mudar nada)
+      const [action, type, userId] = customId.split('-');
+      if (!interaction.member.permissions.has(PermissionsBitField.Flags.BanMembers))
+        return interaction.reply({
+          content: 'Você não tem permissão para votar nesta revisão.',
+          flags: [MessageFlags.Ephemeral],
+        });
+      const originalMessage = interaction.message;
+      const originalEmbed = originalMessage.embeds[0];
+      const editedEmbed = EmbedBuilder.from(originalEmbed);
+      let votersField = editedEmbed.data.fields.find(
+        (field) => field.name === 'Votos para Aprovar'
+      );
+      let currentVoters = votersField.value.split('\n').filter((v) => v !== 'Nenhum');
+      if (currentVoters.includes(interaction.user.tag))
+        return interaction.reply({
+          content: 'Você já registrou seu voto nesta revisão.',
+          flags: [MessageFlags.Ephemeral],
+        });
+      if (action === 'approve') {
+        currentVoters.push(interaction.user.tag);
+        votersField.value = currentVoters.join('\n');
+        await originalMessage.edit({ embeds: [editedEmbed] });
+        await interaction.reply({
+          content: 'Seu voto para **APROVAR** foi registrado.',
+          flags: [MessageFlags.Ephemeral],
+        });
+        const votesRequired = parseInt(process.env.VOTES_REQUIRED_FOR_UNBAN);
+        if (currentVoters.length >= votesRequired) {
+          try {
+            const userToUnban = await interaction.client.users.fetch(userId);
+            await interaction.guild.members.unban(userId);
+            editedEmbed
+              .setColor('#00FF00')
+              .setTitle(`✅ APROVADO: Revisão de Banimento para ${userToUnban.tag}`)
+              .setFooter({ text: `Decisão finalizada.` });
+            const disabledButtons = ActionRowBuilder.from(
+              originalMessage.components[0]
+            ).setComponents(
+              originalMessage.components[0].components.map((button) =>
+                ButtonBuilder.from(button).setDisabled(true)
+              )
+            );
+            await originalMessage.edit({ embeds: [editedEmbed], components: [disabledButtons] });
+          } catch (error) {
+            console.error(error);
+            await interaction.channel.send(
+              'Houve um erro ao tentar desbanir o usuário após a aprovação.'
+            );
+          }
+        }
+      } else if (action === 'reject') {
+        editedEmbed
+          .setColor('#FF0000')
+          .setTitle(`❌ REJEITADO: Revisão de Banimento`)
+          .setFooter({ text: `Revisão encerrada por ${interaction.user.tag}.` });
+        const disabledButtons = ActionRowBuilder.from(originalMessage.components[0]).setComponents(
+          originalMessage.components[0].components.map((button) =>
+            ButtonBuilder.from(button).setDisabled(true)
+          )
+        );
+        await originalMessage.edit({ embeds: [editedEmbed], components: [disabledButtons] });
+        await interaction.reply({
+          content: 'Você votou para **REJEITAR**. A proposta foi encerrada.',
+          flags: [MessageFlags.Ephemeral],
+        });
+      }
     }
   }
 });
 
 // =======================================================
-// CINTO DE SEGURANÇA CONTRA CRASHES
+// CINTOS DE SEGURANÇA E LOGIN
 // =======================================================
 process.on('unhandledRejection', (error) => {
   console.error('🚨 Erro não tratado (Unhandled Rejection):', error);
 });
-
 process.on('uncaughtException', (error) => {
   console.error('🚨 Erro não tratado (Uncaught Exception):', error);
 });
 
-// Faz o login do bot
 client.login(TOKEN).then(async () => {
-  // Inicia o banco de dados
   await initializeDatabase();
-  // Depois que o login for bem-sucedido, inicia o vigia da Twitch
   initializeTwitchNotifier(client);
 });
