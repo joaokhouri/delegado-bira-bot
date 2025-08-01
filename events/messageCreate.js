@@ -1,8 +1,79 @@
+const { getUser, updateUser } = require('../utils/database.js');
+const { Collection, EmbedBuilder, PermissionsBitField } = require('discord.js');
+
+// ESTA LINHA PROVAVELMENTE ESTAVA FALTANDO
+const xpCooldowns = new Collection();
+
 module.exports = {
   name: 'messageCreate',
 
   async execute(message, client) {
     if (message.author.bot || !message.guild) return;
+
+    // =======================================================
+    // MÓDULO DE AUTOMOD: DETECÇÃO DE LINKS DE CONVITE
+    // =======================================================
+    try {
+      // Verifica se o autor da mensagem NÃO é um administrador ou moderador
+      if (!message.member.permissions.has(PermissionsBitField.Flags.ManageMessages)) {
+        const inviteLinkRegex = /(discord\.(gg|com\/invite)\/[a-zA-Z0-9]+)/;
+        if (inviteLinkRegex.test(message.content)) {
+          // 1. Deleta a mensagem com o link
+          await message.delete();
+
+          // 2. Avisa o infrator no privado (DM)
+          const dmEmbed = new EmbedBuilder()
+            .setColor('#FF0000')
+            .setTitle('🚨 Mensagem Apagada Automaticamente')
+            .setDescription(`Olá! Sou o Bira, o guarda aqui do **${message.guild.name}**.`)
+            .addFields({
+              name: 'Motivo',
+              value:
+                'Sua mensagem foi removida por conter um link de convite para outro servidor, o que não é permitido pelas nossas regras.',
+            });
+
+          try {
+            await message.author.send({ embeds: [dmEmbed] });
+          } catch (dmError) {
+            console.log(
+              `[Automod] Não foi possível enviar DM para ${message.author.tag}. (Provavelmente DMs fechadas)`
+            );
+          }
+
+          // 3. Registra a ocorrência no canal de logs
+          const logChannelId = process.env.MOD_LOG_CHANNEL_ID;
+          if (logChannelId) {
+            const logChannel = await message.guild.channels.fetch(logChannelId);
+            if (logChannel) {
+              const logEmbed = new EmbedBuilder()
+                .setColor('#FFA500')
+                .setTitle('📝 RELATÓRIO DE AUTOMOD')
+                .setDescription('**Link de convite detectado e removido.**')
+                .addFields(
+                  {
+                    name: 'Autor',
+                    value: `${message.author.tag} (${message.author.id})`,
+                    inline: false,
+                  },
+                  { name: 'Canal', value: `${message.channel.name}`, inline: false },
+                  {
+                    name: 'Conteúdo Removido',
+                    value: `\`\`\`${message.content.substring(0, 1020)}\`\`\``,
+                    inline: false,
+                  }
+                )
+                .setTimestamp();
+              await logChannel.send({ embeds: [logEmbed] });
+            }
+          }
+
+          // Encerra a execução para esta mensagem, pois ela já foi tratada
+          return;
+        }
+      }
+    } catch (error) {
+      console.error('[Automod] Erro ao verificar links de convite:', error);
+    }
 
     // =======================================================
     // LÓGICA DE GANHO DE XP
