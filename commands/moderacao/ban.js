@@ -48,30 +48,34 @@ module.exports = {
       // Ação de banir
       await targetMember.ban({ reason: reason });
 
-      // Resposta privada
-      await interaction.reply({
-        content: `**Tolerância zero!** O meliante **${targetUser.tag}** foi permanentemente banido da comarca.`,
-        flags: [MessageFlags.Ephemeral],
-      });
+      // --- VARIAÇÕES DE RESPOSTA ---
+      const replies = [
+        `Esse não volta mais. Banimento de **${targetUser.tag}** processado e arquivado, chefe.`,
+        `É, **${targetUser.tag}** passou dos limites. O CPF dele foi cancelado aqui no Terreiro.`,
+        `Portão permanentemente fechado para o indivíduo **${targetUser.tag}**. Ordem executada.`,
+      ];
+      const randomReply = replies[Math.floor(Math.random() * replies.length)];
+      await interaction.reply({ content: randomReply, flags: [MessageFlags.Ephemeral] });
 
-      // ===== INÍCIO DA INTEGRAÇÃO DO LOG =====
+      // --- LOG COM VARIAÇÕES ---
       const logChannelId = process.env.MOD_LOG_CHANNEL_ID;
       if (!logChannelId) return;
-
       const logChannel = await interaction.guild.channels.fetch(logChannelId);
       if (!logChannel) return;
 
+      const logTitles = [
+        '⚖️ RELATÓRIO DE BANIMENTO',
+        '🚨 CPF CANCELADO NA COMARCA',
+        '🚫 ACESSO REVOGADO',
+      ];
+      const randomLogTitle = logTitles[Math.floor(Math.random() * logTitles.length)];
+
       const banLogEmbed = new EmbedBuilder()
-        .setColor('#FF0000') // Vermelho forte para banimento
-        .setTitle('⚖️ RELATÓRIO DE BANIMENTO')
-        .setDescription(`Um mandado de banimento permanente foi executado.`)
+        .setColor('#FF0000')
+        .setTitle(randomLogTitle)
         .addFields(
           { name: 'Membro Banido', value: `${targetUser.tag} (${targetUser.id})`, inline: false },
-          {
-            name: 'Moderador Responsável',
-            value: `${interaction.user.tag} (${interaction.user.id})`,
-            inline: false,
-          },
+          { name: 'Moderador Responsável', value: `${interaction.user.tag}`, inline: false },
           { name: 'Motivo', value: `\`\`\`${reason}\`\`\``, inline: false }
         )
         .setThumbnail(targetUser.displayAvatarURL())

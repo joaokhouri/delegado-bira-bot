@@ -47,30 +47,36 @@ module.exports = {
       // Ação de expulsar
       await targetMember.kick(reason);
 
-      // Resposta privada para o moderador
-      await interaction.reply({
-        content: `**Ordem e progresso!** O cidadão **${targetUser.tag}** foi conduzido para fora da comarca.`,
-        flags: [MessageFlags.Ephemeral],
-      });
+      // --- VARIAÇÕES DE RESPOSTA ---
+      const replies = [
+        `Serviço feito, chefe. O cidadão **${targetUser.tag}** foi convidado a se retirar.`,
+        `Ok, o amigão **${targetUser.tag}** ali já não faz mais parte da nossa resenha.`,
+        `Missão dada é missão cumprida. Elemento **${targetUser.tag}** removido da área.`,
+      ];
+      const randomReply = replies[Math.floor(Math.random() * replies.length)];
+      await interaction.reply({ content: randomReply, flags: [MessageFlags.Ephemeral] });
 
-      // ===== INÍCIO DA INTEGRAÇÃO DO LOG =====
+      // --- LOG COM VARIAÇÕES ---
       const logChannelId = process.env.MOD_LOG_CHANNEL_ID;
-      if (!logChannelId) return; // Se o canal de log não estiver configurado, para por aqui
-
+      if (!logChannelId) return;
       const logChannel = await interaction.guild.channels.fetch(logChannelId);
       if (!logChannel) return;
 
+      const logDescriptions = [
+        'Um cidadão foi acompanhado até a saída.',
+        'Ordem de remoção executada conforme o procedimento.',
+        'Um membro foi retirado da área por mau comportamento.',
+      ];
+      const randomLogDescription =
+        logDescriptions[Math.floor(Math.random() * logDescriptions.length)];
+
       const kickLogEmbed = new EmbedBuilder()
-        .setColor('#FF4500') // Laranja-avermelhado
+        .setColor('#aca902ff')
         .setTitle('⚖️ RELATÓRIO DE EXPULSÃO')
-        .setDescription(`Uma ordem de expulsão foi executada.`)
+        .setDescription(randomLogDescription)
         .addFields(
           { name: 'Membro Expulso', value: `${targetUser.tag} (${targetUser.id})`, inline: false },
-          {
-            name: 'Moderador Responsável',
-            value: `${interaction.user.tag} (${interaction.user.id})`,
-            inline: false,
-          },
+          { name: 'Moderador Responsável', value: `${interaction.user.tag}`, inline: false },
           { name: 'Motivo', value: `\`\`\`${reason}\`\`\``, inline: false }
         )
         .setThumbnail(targetUser.displayAvatarURL())

@@ -120,6 +120,45 @@ client.on('interactionCreate', async (interaction) => {
   if (interaction.isButton()) {
     const customId = interaction.customId;
 
+    // --- NOVA LÓGICA PARA BOTÕES DE AUTOMOD ---
+    if (customId.startsWith('automod-')) {
+      // Garante que apenas moderadores podem usar os botões
+      if (!interaction.member.permissions.has(PermissionsBitField.Flags.ManageMessages)) {
+        return interaction.reply({
+          content: 'Apenas a equipe de moderação pode usar estes botões.',
+          ephemeral: true,
+        });
+      }
+
+      const [action, channelId, messageId] = customId.split('-');
+
+      switch (action) {
+        case 'automod-delete':
+          const channel = await interaction.guild.channels.fetch(channelId).catch(() => null);
+          if (channel) {
+            const messageToDelete = await channel.messages.fetch(messageId).catch(() => null);
+            if (messageToDelete) {
+              await messageToDelete.delete();
+              await interaction.reply({
+                content: 'Mensagem suspeita apagada pelo moderador.',
+                ephemeral: true,
+              });
+              // Remove os botões da mensagem de alerta
+              await interaction.message.edit({ components: [] });
+            }
+          }
+          break;
+        case 'automod-ignore':
+          // Simplesmente apaga a mensagem de alerta
+          await interaction.message.delete();
+          await interaction.reply({
+            content: 'Alerta de falso positivo arquivado.',
+            ephemeral: true,
+          });
+          break;
+      }
+    }
+
     // Lógica para botões de música
     if (customId.startsWith('music_')) {
       const queue = interaction.client.distube.getQueue(interaction.guildId);

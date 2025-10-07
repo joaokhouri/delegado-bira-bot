@@ -1,0 +1,17 @@
+{
+  "maxCapsPercentage": 70,
+  "maxMentions": 5,
+  "strictBannedWords": ["preto de merda", "macaquinha", "negro imundo"],
+  "contextualBannedWords": [
+    "macaco",
+    "baleia",
+    "gordo",
+    "gorda",
+    "retardado",
+    "mongol",
+    "deficiente",
+    "negro",
+    "crioulo"
+  ],
+  "contextualTriggers": ["seu", "sua", "é um", "é uma", "lixo", "bosta", "inútil"]
+}

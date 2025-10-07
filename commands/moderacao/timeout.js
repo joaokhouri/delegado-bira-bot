@@ -68,23 +68,33 @@ module.exports = {
       // Ação de timeout
       await targetMember.timeout(durationMs, reason);
 
-      // Resposta privada
-      await interaction.reply({
-        content: `**Ordem no tribunal!** O cidadão **${targetUser.tag}** vai refletir sobre seus atos no xilindró por **${durationString}**.`,
-        flags: [MessageFlags.Ephemeral],
-      });
+      // --- VARIAÇÕES DE RESPOSTA ---
+      const replies = [
+        `Pronto. Mandei **${targetUser.tag}** pra salinha do castigo pra pensar um pouco na vida.`,
+        `Tá feito. O microfone do engraçadinho **${targetUser.tag}** foi cortado por ${durationString}.`,
+        `Operação 'Esfria a Cabeça' executada com sucesso em **${targetUser.tag}**, chefe.`,
+      ];
+      const randomReply = replies[Math.floor(Math.random() * replies.length)];
+      await interaction.reply({ content: randomReply, flags: [MessageFlags.Ephemeral] });
 
-      // ===== INÍCIO DA INTEGRAÇÃO DO LOG =====
+      // --- LOG COM VARIAÇÕES ---
       const logChannelId = process.env.MOD_LOG_CHANNEL_ID;
       if (!logChannelId) return;
-
       const logChannel = await interaction.guild.channels.fetch(logChannelId);
       if (!logChannel) return;
 
+      const logDescriptions = [
+        'Um cidadão foi temporariamente silenciado para refletir sobre seus atos.',
+        'Aplicada pena de silenciamento por tempo determinado.',
+        'Membro colocado no cantinho do castigo.',
+      ];
+      const randomLogDescription =
+        logDescriptions[Math.floor(Math.random() * logDescriptions.length)];
+
       const timeoutLogEmbed = new EmbedBuilder()
-        .setColor('#FFFF00') // Amarelo para timeout
+        .setColor('#FFFF00')
         .setTitle('⚖️ RELATÓRIO DE CASTIGO (TIMEOUT)')
-        .setDescription(`Um membro foi temporariamente silenciado.`)
+        .setDescription(randomLogDescription)
         .addFields(
           {
             name: 'Membro Silenciado',
@@ -92,11 +102,7 @@ module.exports = {
             inline: false,
           },
           { name: 'Duração do Castigo', value: durationString, inline: false },
-          {
-            name: 'Moderador Responsável',
-            value: `${interaction.user.tag} (${interaction.user.id})`,
-            inline: false,
-          },
+          { name: 'Moderador Responsável', value: `${interaction.user.tag}`, inline: false },
           { name: 'Motivo', value: `\`\`\`${reason}\`\`\``, inline: false }
         )
         .setThumbnail(targetUser.displayAvatarURL())
