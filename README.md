@@ -1,39 +1,53 @@
-# 🤖 Delegado Bira - Bot para Discord (v1.6)
+# 🤖 Delegado Bira - v2.0
 
-Este é o Delegado Bira, um bot de moderação, utilidade e engajamento para a comunidade "Terreiro do Pai Alípio", com uma personalidade única de "guardinha gente fina" e informal.
+Bot multifuncional para o servidor "Terreiro do Pai Alípio".
 
-## ✨ Funcionalidades Principais
+---
 
-### 🛡️ Moderação e Segurança
+## 🛡️ Comandos de Moderação
 
-- **Kit de Punição Completo:** `/kick`, `/ban`, `/timeout`, `/clear`.
-- **Sistema de Perdão Avançado:** `/unban` com votação da equipe e `/untimeout`.
-- **Logs e Relatórios:** Logs detalhados para todas as ações de moderação.
-- **Automoderação com Supervisão Humana:** O Bira patrulha o chat e alerta a moderação sobre:
-  - Palavras Proibidas (com e sem contexto).
-  - Spam de Menções e CAPS LOCK.
-  - Links de Convite.
-  - Os alertas vêm com botões para ação rápida dos moderadores.
+- `/kick`, `/ban`, `/timeout`, `/clear`: Ações de punição básicas.
+- `/untimeout`, `/unban`: Ações para remover punições (unban via votação da staff).
+- `/warn`: Aplica uma advertência a um membro.
+- `/warnings`: Mostra o histórico de advertências de um membro.
+- `/report`: Permite que qualquer membro envie uma denúncia confidencial para a moderação.
+- `/enviar-regas`, `/painel-comandos`: Comandos de ADM para postar mensagens oficiais.
 
-### 🏆 Engajamento da Comunidade
+---
 
-- **Sistema de XP/Níveis:** Membros ganham XP ao conversar, com progresso salvo em banco de dados.
-- **Comandos de Ranking:** `/rank` com cartão visual e `/leaderboard` com o Top 10.
-- **Anunciante da Twitch:** Anuncia automaticamente no Discord quando a live começa.
-- **Mural de Destaques (Starboard):** Imortaliza as melhores mensagens do servidor, votadas pela comunidade com o emoji ⭐.
+## ⚙️ Comandos de Utilidade
 
-### 🎨 Interação e Diversão
+- `/ajuda`: Menu interativo com a lista de todos os comandos públicos.
+- `/userinfo`: Mostra a "ficha" de um membro.
+- `/serverinfo`: Mostra as estatísticas do servidor.
+- `/rank`: Gera um cartão visual com o nível e XP do membro.
+- `/leaderboard`: Mostra o ranking dos membros mais ativos.
+- `/sortear`: Sorteia um número.
 
-- **Manipulação de Imagem:** Comandos como `/prender`, `/filosofo` e `/tweet`.
-- **Comandos Simples:** Ferramentas como `/gado` e `/moeda`.
-- **Personalidade Reativa:** Responde a palavras-chave com respostas aleatórias ou reações.
+---
+
+## 🎉 Comandos de Diversão e Interação
+
+- `/gado`, `/moeda`, `/comedia`, `/abraçar`: Comandos de interação social.
+- `/prender`, `/filosofo`, `/tweet`: Comandos que geram imagens customizadas.
+
+---
+
+## 🤖 Sistemas Automáticos e Personalidade
+
+- **Anunciante da Twitch:** Anuncia no Discord quando a live na Twitch começa.
+- **Sistema de XP & Cargos por Nível:** Membros ganham XP ao conversar e recebem cargos automaticamente ao atingir certos níveis.
+- **Mural de Destaques (Starboard):** Imortaliza mensagens que recebem muitas reações ⭐.
+- **Automoderação com Supervisão Humana:**
+  - Detecta e alerta a moderação sobre: palavras proibidas (com e sem contexto), spam de menções e CAPS, e links de convite.
+- **Listener de Palavras-Chave:** O Bira reage e responde a gírias e frases específicas no chat.
 - **Status Dinâmico:** A atividade do bot muda periodicamente.
+- **Portão de Verificação:** Novos membros precisam aceitar as regras clicando em um botão para ganhar acesso ao servidor.
 
-### ⚙️ Utilidade
+---
 
-- **Manual de Operações:** Comando `/ajuda` interativo por categorias.
-- **Consulta de Ficha:** `/userinfo` e `/serverinfo`.
+## 🚀 Setup
 
-## ⚙️ Configuração
-
-Para rodar o bot, é necessário um arquivo `.env` e um `automodConfig.json`. Após a configuração, rode `npm install` e `node deploy-commands.js`.
+- Configurar os arquivos `.env`, `automodConfig.json` e `levelRolesConfig.json`.
+- Rodar `npm install`.
+- Rodar `node deploy-commands.js` para registrar os comandos.

@@ -8,6 +8,7 @@ const {
   ButtonStyle,
 } = require('discord.js');
 const automodConfig = require('../automodConfig.json');
+const levelRolesConfig = require('../levelRolesConfig.json');
 
 const xpCooldowns = new Collection();
 // O "caderninho" do Bira para monitorar spam de CAPS (AGORA DECLARADO)
@@ -154,45 +155,60 @@ module.exports = {
     // LÓGICA DE GANHO DE XP
     // =======================================================
     try {
-      const cooldownAmount = 60000; // Cooldown de 60 segundos (em milissegundos)
+      const cooldownAmount = 60000;
       const userId = message.author.id;
       const guildId = message.guild.id;
 
-      // Verifica se o usuário está na coleção de cooldowns
       if (!xpCooldowns.has(userId)) {
-        // Se não estiver, adiciona XP
         let user = await getUser(userId, guildId);
-
-        // Se o usuário não existir no banco de dados, cria um perfil padrão para ele
         if (!user) {
           user = { userId, guildId, xp: 0, level: 1 };
         }
 
-        // Adiciona uma quantidade aleatória de XP (entre 15 e 25)
         const xpGained = Math.floor(Math.random() * 11) + 15;
         user.xp += xpGained;
 
-        // Calcula o XP necessário para o próximo nível
         const xpToNextLevel = user.level * 300;
 
-        // Verifica se o usuário subiu de nível
         if (user.xp >= xpToNextLevel) {
           user.level++;
-          // Opcional: Reseta o XP para o que sobrou após subir de nível
-          // user.xp = user.xp - xpToNextLevel;
 
-          // Envia uma mensagem de parabéns no canal
-          await message.channel.send(
-            `🎉 **Promoção!** Parabéns, ${message.author}! Você foi promovido a **Nível ${user.level}** na hierarquia do Terreiro!`
-          );
+          // --- NOVA LÓGICA DE CARGOS POR NÍVEL ---
+          const newRoleForLevel = levelRolesConfig[String(user.level)]; // Pega o ID do cargo para o novo nível
+
+          if (newRoleForLevel) {
+            try {
+              const role = message.guild.roles.cache.get(newRoleForLevel);
+              if (role) {
+                // Remove todos os outros cargos de nível para evitar acúmulo
+                const allLevelRoleIds = Object.values(levelRolesConfig);
+                await message.member.roles.remove(allLevelRoleIds).catch(() => {});
+
+                // Adiciona o novo cargo de nível
+                await message.member.roles.add(role);
+
+                // Mensagem de parabéns aprimorada
+                await message.channel.send(
+                  `🎉 **PROMOÇÃO DE PATENTE!** Parabéns, ${message.author}! Você subiu para o **Nível ${user.level}** e recebeu o cargo **${role.name}**!`
+                );
+              }
+            } catch (roleError) {
+              console.error(
+                `[LevelRoles] Falha ao tentar dar o cargo de nível para ${message.author.tag}:`,
+                roleError
+              );
+            }
+          } else {
+            // Mensagem de parabéns padrão se não houver cargo para este nível
+            await message.channel.send(
+              `🎉 **Subiu de nível!** Parabéns, ${message.author}! Você alcançou o **Nível ${user.level}**!`
+            );
+          }
         }
 
-        // Atualiza as informações do usuário no banco de dados
         await updateUser(userId, guildId, user.xp, user.level);
-
-        // Coloca o usuário no cooldown
         xpCooldowns.set(userId, Date.now());
-        setTimeout(() => xpCooldowns.delete(userId), cooldownAmount); // Remove do cooldown após 60 segundos
+        setTimeout(() => xpCooldowns.delete(userId), cooldownAmount);
       }
     } catch (error) {
       console.error('[XP System] Erro ao processar XP para o usuário:', error);
@@ -221,21 +237,35 @@ module.exports = {
         'Quem acordou, acordou. Quem não acordou, acorda aí! O Bira já tá na ativa.',
         'Bom dia, campeão! Já tô de pé desde as cinco.',
       ],
-      salve: [
+      //prettier-ignore
+      'salve': [
         'Salve, bigode! Tudo em paz por aí?',
         'Salvado! Mantendo a ordem por aqui.',
         'Salve! Chegou na hora certa pro café da guarita.',
       ],
-      roubo: [
+      //prettier-ignore
+      'roubo': [
         // Perfeito para quando alguém "rouba" uma kill no jogo
         'Opa, opa! Calma aí. Acusação de roubo é séria. Apresente as provas no canal competente.',
         'Registrando a ocorrência de "suposto 171". A corregedoria vai apurar.',
         'Sem tumulto na minha área! Resolvam isso no x1, na moral.',
       ],
-      triste: [
+      //prettier-ignore
+      'triste': [
         'Calma, campeão. Bota uma música aí pra animar.',
         'Fica assim não, amigão. O patrão já errou jogada pior que essa.',
         'Quer um café? Dizem que ajuda a resolver 90% dos problemas.',
+      ],
+      //prettier-ignore
+      'bira me ajuda': [
+        'Opa, qual é a emergência? Se for comando, usa o `/ajuda`. Se for problema, chame um administrador.',
+        'Tô aqui pra isso, campeão. Manda a braba.',
+        '190 do Bira, qual a ocorrência?',
+      ],
+      //prettier-ignore
+      'esse bot': [
+        'Bot? Eu sou concursado, amigão. Respeita a firma.',
+        'Tô ouvindo você falar de mim aí...',
       ],
 
       // --- Reações com Emoji (objeto) ---
@@ -245,6 +275,8 @@ module.exports = {
       'parabéns': { type: 'react', value: '🎉' }, //prettier-ignore
       'brabo': { type: 'react', value: '🔥' }, //prettier-ignore
       'f': { type: 'react', value: '😔' }, //prettier-ignore
+      'top': { type: 'react', value: '👍' }, //prettier-ignore
+      'rip': { type: 'react', value: '💀' }, //prettier-ignore
     };
 
     const lowerCaseMessage = message.content.toLowerCase();
