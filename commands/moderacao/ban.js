@@ -45,6 +45,22 @@ module.exports = {
     }
 
     try {
+      // --- NOVA ETAPA: TENTA ENVIAR A DM PARA O USUÁRIO ---
+      const dmEmbed = new EmbedBuilder()
+        .setColor('#FF0000')
+        .setTitle('Você foi Banido(a)')
+        .setDescription(
+          `Você foi **permanentemente banido(a)** do servidor **${interaction.guild.name}**.`
+        )
+        .addFields({ name: 'Motivo', value: `\`\`\`${reason}\`\`\`` })
+        .setTimestamp();
+
+      await targetMember.send({ embeds: [dmEmbed] }).catch((err) => {
+        console.log(
+          `[DM Fallback] Não foi possível enviar DM para ${targetUser.tag}. O banimento prosseguirá.`
+        );
+      });
+
       // Ação de banir
       await targetMember.ban({ reason: reason });
 

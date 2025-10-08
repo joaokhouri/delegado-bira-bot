@@ -11,12 +11,11 @@ const {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
-  StringSelectMenuBuilder, // Garante que StringSelectMenuBuilder está aqui
+  StringSelectMenuBuilder,
 } = require('discord.js');
 const { initializeTwitchNotifier } = require('./utils/twitchNotifier');
 const categoryNames = require('./utils/commandCategories');
 const { initializeDatabase } = require('./utils/database');
-
 const path = require('path');
 
 const TOKEN = process.env.TOKEN;
@@ -80,8 +79,9 @@ client.on('interactionCreate', async (interaction) => {
       await command.execute(interaction);
     } catch (error) {
       console.error(`Erro ao executar o comando ${interaction.commandName}:`, error);
-      const errorMessage = 'Ocorreu um erro inesperado ao processar o comando!';
+      let errorMessage = 'Ocorreu um erro inesperado ao processar o comando!';
       if (error.code === 10013) {
+        // Unknown User
         errorMessage =
           '🕵️‍♂️ **Usuário não encontrado.** Verifique se o ID está correto ou se o membro já foi desbanido.';
       }
@@ -91,7 +91,7 @@ client.on('interactionCreate', async (interaction) => {
         await interaction.reply({ content: errorMessage, flags: [MessageFlags.Ephemeral] });
       }
     }
-    return;
+    return; // IMPORTANTE: Encerra aqui para não continuar para outras interações
   }
 
   // --- LIDA COM MENUS DE SELEÇÃO ---
@@ -113,50 +113,132 @@ client.on('interactionCreate', async (interaction) => {
         );
       await interaction.update({ embeds: [categoryEmbed] });
     }
-    return;
+    return; // IMPORTANTE: Encerra aqui
   }
 
   // --- LIDA COM BOTÕES ---
   if (interaction.isButton()) {
     const customId = interaction.customId;
 
-    // --- NOVA LÓGICA PARA BOTÕES DE AUTOMOD ---
+    // --- LÓGICA CORRIGIDA E APRIMORADA PARA BOTÕES DE AUTOMOD ---
     if (customId.startsWith('automod-')) {
-      // Garante que apenas moderadores podem usar os botões
       if (!interaction.member.permissions.has(PermissionsBitField.Flags.ManageMessages)) {
         return interaction.reply({
           content: 'Apenas a equipe de moderação pode usar estes botões.',
-          ephemeral: true,
+          flags: [MessageFlags.Ephemeral],
         });
       }
 
-      const [action, channelId, messageId] = customId.split('-');
+      // Nova forma de "ler" o RG do botão
+      const parts = customId.split('-');
+      const action = parts[1]; // 'delete' ou 'ignore'
+
+      await interaction.deferUpdate(); // Confirma o clique para o Discord e nos dá mais tempo
+
+      const originalAlertEmbed = interaction.message.embeds[0];
 
       switch (action) {
-        case 'automod-delete':
+        case 'delete': {
+          const channelId = parts[2];
+          const messageId = parts[3];
           const channel = await interaction.guild.channels.fetch(channelId).catch(() => null);
+
+          let statusDescription = '';
+
           if (channel) {
             const messageToDelete = await channel.messages.fetch(messageId).catch(() => null);
             if (messageToDelete) {
-              await messageToDelete.delete();
-              await interaction.reply({
-                content: 'Mensagem suspeita apagada pelo moderador.',
+              try {
+                await messageToDelete.delete();
+                await interaction.followUp({
+                  content: '✅ Mensagem suspeita apagada com sucesso.',
+                  ephemeral: true,
+                });
+                statusDescription = `**Veredito:** Mensagem Apagada por ${interaction.user}.`;
+              } catch (err) {
+                await interaction.followUp({
+                  content:
+                    '❌ **Falha ao apagar!** O Bira não tem permissão de `Gerenciar Mensagens` naquele canal.',
+                  ephemeral: true,
+                });
+                statusDescription = `**Falha:** O Bira não tem permissão para apagar a mensagem.`;
+              }
+            } else {
+              await interaction.followUp({
+                content:
+                  '⚠️ A mensagem original não foi encontrada (provavelmente já foi apagada).',
                 ephemeral: true,
               });
-              // Remove os botões da mensagem de alerta
-              await interaction.message.edit({ components: [] });
+              statusDescription = `**Veredito:** Mensagem não encontrada (já apagada).`;
             }
+          } else {
+            statusDescription = `**Falha:** Canal não encontrado.`;
           }
+
+          // Edita o alerta original com o resultado da ação
+          const resolvedEmbed = EmbedBuilder.from(originalAlertEmbed)
+            .setColor('#57F287') // Verde
+            .setTitle('✅ OCORRÊNCIA RESOLVIDA')
+            .addFields({ name: 'Status', value: statusDescription });
+          await interaction.message.edit({ embeds: [resolvedEmbed], components: [] }); // Remove os botões
           break;
-        case 'automod-ignore':
-          // Simplesmente apaga a mensagem de alerta
-          await interaction.message.delete();
-          await interaction.reply({
+        }
+        case 'ignore': {
+          // Edita o alerta original para mostrar que foi ignorado
+          const resolvedEmbed = EmbedBuilder.from(originalAlertEmbed)
+            .setColor('#808080') // Cinza
+            .setTitle('✅ OCORRÊNCIA ARQUIVADA')
+            .addFields({
+              name: 'Status',
+              value: `**Veredito:** Ignorado (Falso Alarme) por ${interaction.user}.`,
+            });
+          await interaction.message.edit({ embeds: [resolvedEmbed], components: [] });
+          await interaction.followUp({
             content: 'Alerta de falso positivo arquivado.',
             ephemeral: true,
           });
           break;
+        }
       }
+      return;
+    }
+
+    // --- NOVA LÓGICA PARA O BOTÃO DE REGRAS ---
+    if (customId === 'accept_rules_button') {
+      const roleId = process.env.VERIFIED_ROLE_ID;
+      const member = interaction.member;
+
+      if (!roleId) {
+        return interaction.reply({
+          content: 'O cargo de verificação não está configurado. Fale com um administrador.',
+          ephemeral: true,
+        });
+      }
+
+      // Verifica se o membro já tem o cargo
+      if (member.roles.cache.has(roleId)) {
+        return interaction.reply({
+          content: 'Você já foi verificado e tem acesso ao servidor.',
+          ephemeral: true,
+        });
+      }
+
+      try {
+        // Adiciona o cargo ao membro
+        await member.roles.add(roleId);
+        await interaction.reply({
+          content:
+            'Obrigado por aceitar as regras! Seu acesso ao restante do servidor foi liberado.',
+          ephemeral: true,
+        });
+      } catch (error) {
+        console.error('Erro ao tentar adicionar o cargo de verificado:', error);
+        await interaction.reply({
+          content: 'Não consegui te dar o cargo. Por favor, contate um administrador.',
+          ephemeral: true,
+        });
+      }
+      return;
     }
 
     // Lógica para botões de música

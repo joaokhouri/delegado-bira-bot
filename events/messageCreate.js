@@ -1,19 +1,40 @@
 const { getUser, updateUser } = require('../utils/database.js');
-const { Collection, EmbedBuilder, PermissionsBitField } = require('discord.js');
+const {
+  Collection,
+  EmbedBuilder,
+  PermissionsBitField,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+} = require('discord.js');
 const automodConfig = require('../automodConfig.json');
 
-// ESTA LINHA PROVAVELMENTE ESTAVA FALTANDO
 const xpCooldowns = new Collection();
+// O "caderninho" do Bira para monitorar spam de CAPS (AGORA DECLARADO)
+const capsSpamTracker = new Collection();
 
-// Função auxiliar para reutilizar o código de punição
+// A função que REPORTA a violação para os moderadores
 async function reportViolation(message, reason, client) {
+  console.log(`[DEBUG] Violação detectada: "${reason}". Iniciando processo de relatório.`); // Log 1
+
   const logChannelId = process.env.MOD_LOG_CHANNEL_ID;
-  if (!logChannelId) return;
+  if (!logChannelId) {
+    console.error(
+      '[DEBUG] ERRO: A variável MOD_LOG_CHANNEL_ID não foi encontrada no .env. Processo abortado.'
+    ); // Log 2
+    return;
+  }
 
   const logChannel = await message.guild.channels.fetch(logChannelId).catch(() => null);
-  if (!logChannel) return;
+  if (!logChannel) {
+    console.error(
+      `[DEBUG] ERRO: O canal de logs com o ID (${logChannelId}) não foi encontrado no servidor. Processo abortado.`
+    ); // Log 3
+    return;
+  }
 
-  // Constrói o Embed de alerta
+  console.log(`[DEBUG] Canal de logs "${logChannel.name}" encontrado. Construindo o alerta...`); // Log 4
+
   const alertEmbed = new EmbedBuilder()
     .setColor('#FF0000')
     .setTitle('🚨 ALERTA DE AUTOMOD 🚨')
@@ -32,7 +53,6 @@ async function reportViolation(message, reason, client) {
     .setTimestamp()
     .setFooter({ text: 'A decisão de punir ou não cabe a um moderador.' });
 
-  // Constrói os botões de ação para os moderadores
   const actionRow = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`automod-delete-${message.channel.id}-${message.id}`)
@@ -40,19 +60,19 @@ async function reportViolation(message, reason, client) {
       .setStyle(ButtonStyle.Danger)
       .setEmoji('🗑️'),
     new ButtonBuilder()
-      .setCustomId('automod-ignore')
+      .setCustomId(`automod-ignore-${message.id}`)
       .setLabel('Ignorar (Falso Alarme)')
       .setStyle(ButtonStyle.Secondary)
       .setEmoji('✅')
   );
 
-  // Envia o alerta mencionando o cargo de moderador
   const modRoleId = process.env.MOD_ROLE_ID;
   const alertContent = modRoleId
     ? `<@&${modRoleId}>, nova ocorrência para análise:`
     : 'Nova ocorrência para análise:';
 
   await logChannel.send({ content: alertContent, embeds: [alertEmbed], components: [actionRow] });
+  console.log('[DEBUG] Alerta enviado com sucesso!'); // Log 5
 }
 
 module.exports = {
@@ -62,65 +82,66 @@ module.exports = {
     if (message.author.bot || !message.guild) return;
 
     // =======================================================
-    // MÓDULO DE AUTOMOD: DETECÇÃO DE LINKS DE CONVITE
+    // MÓDULO DE AUTOMOD COMPLETO E CORRIGIDO
     // =======================================================
     try {
       if (!message.member.permissions.has(PermissionsBitField.Flags.ManageMessages)) {
         let violationReason = null;
         const lowerCaseMessage = message.content.toLowerCase();
 
-        // 1. Verificações Imediatas (Palavras Proibidas e Links)
-        const foundBannedWord = automodConfig.bannedWords.find((word) =>
-          lowerCaseMessage.includes(word)
-        );
-        if (foundBannedWord) {
-          violationReason = `A mensagem continha um termo proibido: "${foundBannedWord}".`;
-        } else if (/(discord\.(gg|com\/invite)\/[a-zA-Z0-9]+)/.test(message.content)) {
-          violationReason = 'A mensagem continha um link de convite para outro servidor.';
-        } else if (message.mentions.users.size > automodConfig.maxMentions) {
-          violationReason = `A mensagem mencionava ${message.mentions.users.size} usuários (limite: ${automodConfig.maxMentions}).`;
+        const strictBannedWords = automodConfig.strictBannedWords || [];
+        const strictWord = strictBannedWords.find((word) => lowerCaseMessage.includes(word));
+        if (strictWord) {
+          violationReason = `A mensagem continha um termo estritamente proibido.`;
+        }
+
+        if (!violationReason) {
+          const contextualBannedWords = automodConfig.contextualBannedWords || [];
+          const contextualWord = contextualBannedWords.find((word) =>
+            lowerCaseMessage.includes(word)
+          );
+          if (contextualWord) {
+            const contextualTriggers = automodConfig.contextualTriggers || [];
+            const isReply = message.reference;
+            const hasMention = message.mentions.users.size > 0 || message.mentions.roles.size > 0;
+            const hasTriggerWord = contextualTriggers.some((trigger) =>
+              lowerCaseMessage.includes(trigger)
+            );
+            if (isReply || hasMention || hasTriggerWord) {
+              violationReason = `A mensagem usou um termo sensível ("${contextualWord}") em um contexto de ofensa direta.`;
+            }
+          }
         }
 
         if (violationReason) {
-          await handleViolation(message, violationReason, client);
-          return;
+          await reportViolation(message, violationReason, client); // CORRIGIDO PARA reportViolation
+          // Não damos 'return' para que a lógica de XP ainda possa rodar se quisermos
         }
 
-        // 2. Verificação de SPAM de CAPS LOCK (com memória)
+        // Lógica de CAPS LOCK que REPORTA em vez de punir
         const contentWithoutSpaces = message.content.replace(/\s/g, '');
         if (contentWithoutSpaces.length > 10) {
           const caps = contentWithoutSpaces.match(/[A-Z]/g)?.length || 0;
           const capsPercentage = (caps / contentWithoutSpaces.length) * 100;
 
           if (capsPercentage > automodConfig.maxCapsPercentage) {
-            // A mensagem é considerada "CAPS"
-            const userData = capsSpamTracker.get(message.author.id) || { count: 0, messages: [] };
+            const userData = capsSpamTracker.get(message.author.id) || { count: 0 };
             userData.count++;
-            userData.messages.push(message);
 
-            // Define um timer. Se o usuário não mandar outra msg em CAPS em 15s, o contador reseta.
             if (userData.timer) clearTimeout(userData.timer);
             userData.timer = setTimeout(() => {
               capsSpamTracker.delete(message.author.id);
-            }, 15000); // 15 segundos
+            }, 15000);
 
             capsSpamTracker.set(message.author.id, userData);
 
-            // Se o contador atingir o limite (5), PUNIÇÃO!
             if (userData.count >= 5) {
+              // Usando seu limite de 5
               violationReason = 'Envio de 5 ou mais mensagens seguidas em maiúsculas.';
-
-              // Deleta todas as mensagens da sequência
-              for (const msg of userData.messages) {
-                await msg.delete().catch(() => {}); // O catch evita erros se a msg já foi deletada
-              }
-
-              await handleViolation(message, violationReason, client);
-              capsSpamTracker.delete(message.author.id); // Limpa o registro do infrator
-              return;
+              await reportViolation(message, violationReason, client);
+              capsSpamTracker.delete(message.author.id);
             }
           } else {
-            // Se a mensagem NÃO for em CAPS, a sequência é quebrada. Limpa o registro.
             capsSpamTracker.delete(message.author.id);
           }
         }

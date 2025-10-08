@@ -44,6 +44,19 @@ module.exports = {
     }
 
     try {
+      // --- NOVA ETAPA: TENTA ENVIAR A DM PARA O USUÁRIO ---
+      const dmEmbed = new EmbedBuilder()
+        .setColor('#FF4500')
+        .setTitle('Você foi Expulso(a)')
+        .setDescription(`Você foi expulso(a) do servidor **${interaction.guild.name}**.`)
+        .addFields({ name: 'Motivo', value: `\`\`\`${reason}\`\`\`` })
+        .setTimestamp();
+
+      await targetMember.send({ embeds: [dmEmbed] }).catch((err) => {
+        console.log(
+          `[DM Fallback] Não foi possível enviar DM para ${targetUser.tag}. A expulsão prosseguirá.`
+        );
+      });
       // Ação de expulsar
       await targetMember.kick(reason);
 
@@ -71,7 +84,7 @@ module.exports = {
         logDescriptions[Math.floor(Math.random() * logDescriptions.length)];
 
       const kickLogEmbed = new EmbedBuilder()
-        .setColor('#aca902ff')
+        .setColor('#fffb00ff')
         .setTitle('⚖️ RELATÓRIO DE EXPULSÃO')
         .setDescription(randomLogDescription)
         .addFields(

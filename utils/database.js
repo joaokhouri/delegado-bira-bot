@@ -27,7 +27,28 @@ const initializeDatabase = async () => {
             )
         `);
 
-    console.log('[Banco de Dados] Tabela "users" verificada e pronta para uso.');
+    // --- NOVA TABELA PARA ADVERTÊNCIAS ---
+    await db.exec(`
+            CREATE TABLE IF NOT EXISTS warnings (
+                warningId INTEGER PRIMARY KEY AUTOINCREMENT,
+                userId TEXT NOT NULL,
+                guildId TEXT NOT NULL,
+                moderatorId TEXT NOT NULL,
+                reason TEXT,
+                timestamp INTEGER NOT NULL
+            )
+        `);
+
+    // --- NOVA TABELA PARA O STARBOARD ---
+    await db.exec(`
+            CREATE TABLE IF NOT EXISTS starboard (
+                originalMessageId TEXT PRIMARY KEY,
+                starboardMessageId TEXT NOT NULL,
+                guildId TEXT NOT NULL
+            )
+        `);
+
+    console.log('[Banco de Dados] Todas as tabelas verificadas e prontas.');
   } catch (error) {
     console.error('[Banco de Dados] Erro ao inicializar o banco de dados:', error);
   }
@@ -62,10 +83,49 @@ const getLeaderboard = async (guildId, limit = 10) => {
   );
 };
 
+// Adiciona uma nova advertência ao banco de dados
+const addWarning = async (userId, guildId, moderatorId, reason) => {
+  if (!db) await initializeDatabase();
+  await db.run(
+    'INSERT INTO warnings (userId, guildId, moderatorId, reason, timestamp) VALUES (?, ?, ?, ?, ?)',
+    [userId, guildId, moderatorId, reason, Date.now()]
+  );
+};
+
+// Pega todas as advertências de um usuário específico
+const getWarnings = async (userId, guildId) => {
+  if (!db) await initializeDatabase();
+  return await db.all(
+    'SELECT * FROM warnings WHERE userId = ? AND guildId = ? ORDER BY timestamp DESC',
+    [userId, guildId]
+  );
+};
+
+// Busca uma entrada no starboard pelo ID da mensagem original
+const getStarboardEntry = async (originalMessageId) => {
+  if (!db) await initializeDatabase();
+  return await db.get('SELECT starboardMessageId FROM starboard WHERE originalMessageId = ?', [
+    originalMessageId,
+  ]);
+};
+
+// Adiciona uma nova entrada ao starboard
+const addStarboardEntry = async (originalMessageId, starboardMessageId, guildId) => {
+  if (!db) await initializeDatabase();
+  await db.run(
+    'INSERT INTO starboard (originalMessageId, starboardMessageId, guildId) VALUES (?, ?, ?)',
+    [originalMessageId, starboardMessageId, guildId]
+  );
+};
+
 // Exportamos as funções para que outros arquivos possam usá-las
 module.exports = {
   initializeDatabase,
   getUser,
   updateUser,
   getLeaderboard,
+  addWarning,
+  getWarnings,
+  getStarboardEntry,
+  addStarboardEntry,
 };

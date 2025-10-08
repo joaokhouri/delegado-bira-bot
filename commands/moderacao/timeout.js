@@ -65,6 +65,24 @@ module.exports = {
     }
 
     try {
+      // --- NOVA ETAPA: TENTA ENVIAR A DM PARA O USUÁRIO ---
+      const dmEmbed = new EmbedBuilder()
+        .setColor('#FFFF00')
+        .setTitle('Você foi Colocado(a) de Castigo')
+        .setDescription(
+          `Você foi temporariamente silenciado(a) no servidor **${interaction.guild.name}**.`
+        )
+        .addFields(
+          { name: 'Duração', value: durationString },
+          { name: 'Motivo', value: `\`\`\`${reason}\`\`\`` }
+        )
+        .setTimestamp();
+
+      await targetMember.send({ embeds: [dmEmbed] }).catch((err) => {
+        console.log(
+          `[DM Fallback] Não foi possível enviar DM para ${targetUser.tag}. O castigo prosseguirá.`
+        );
+      });
       // Ação de timeout
       await targetMember.timeout(durationMs, reason);
 

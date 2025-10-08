@@ -3,6 +3,9 @@ const {
   EmbedBuilder,
   PermissionsBitField,
   MessageFlags,
+  ButtonBuilder,
+  ButtonStyle,
+  ActionRowBuilder,
 } = require('discord.js');
 
 module.exports = {
@@ -87,17 +90,27 @@ module.exports = {
           '> Tira um print e manda no privado pra qualquer @Moderador. Não tente resolver no chat geral pra não render mais treta.',
       });
 
+    // --- O BOTÃO DE ACEITAÇÃO ---
+    const acceptButton = new ButtonBuilder()
+      .setCustomId('accept_rules_button')
+      .setLabel('Eu li e aceito as regras')
+      .setStyle(ButtonStyle.Success)
+      .setEmoji('✅');
+
+    const row = new ActionRowBuilder().addComponents(acceptButton);
+
     try {
-      await interaction.channel.send({ embeds: [rulesEmbed, penaltiesEmbed] });
+      // Agora enviamos os embeds E a fileira com o botão
+      await interaction.channel.send({ embeds: [rulesEmbed, penaltiesEmbed], components: [row] });
       await interaction.reply({
-        content: 'As novas regras da casa foram enviadas com sucesso!',
-        flags: [MessageFlags.Ephemeral],
+        content: 'A mensagem de regras com o botão de verificação foi enviada!',
+        ephemeral: true,
       });
     } catch (error) {
       console.error('Erro ao enviar a mensagem de regras:', error);
       await interaction.reply({
-        content: 'Ocorreu um erro ao tentar enviar as regras.',
-        flags: [MessageFlags.Ephemeral],
+        content: 'Ocorreu um erro ao tentar enviar a mensagem de regras.',
+        ephemeral: true,
       });
     }
   },
