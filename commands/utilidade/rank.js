@@ -1,8 +1,9 @@
-const { SlashCommandBuilder, AttachmentBuilder } = require('discord.js');
+const { SlashCommandBuilder, AttachmentBuilder, EmbedBuilder } = require('discord.js');
 const sharp = require('sharp');
 const axios = require('axios');
 const path = require('path');
 const { getUser, getLeaderboard } = require('../../utils/database');
+const levelRolesConfig = require('../../levelRolesConfig.json'); // Importa a config de cargos por nível
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -36,13 +37,29 @@ module.exports = {
       const requiredXp = userDb.level * 300;
       const xpPercentage = Math.floor((userDb.xp / requiredXp) * 100);
 
-      // --- INÍCIO DA GERAÇÃO DA IMAGEM ---
+      // --- LÓGICA APIMORADA PARA PEGAR PATENTE E COR ---
+      const roleColor = targetMember.roles.color?.hexColor || '#0099ff'; // Pega a cor do cargo mais alto
+      let highestLevelRoleName = 'Recruta'; // Nome padrão
 
+      const userLevelRoles = Object.entries(levelRolesConfig)
+        .filter(([level]) => userDb.level >= parseInt(level))
+        .map(([, roleId]) => roleId);
+
+      if (userLevelRoles.length > 0) {
+        const highestRoleId = userLevelRoles.pop();
+        const role = interaction.guild.roles.cache.get(highestRoleId);
+        if (role) highestLevelRoleName = role.name;
+      } else if (targetMember.roles.cache.has(process.env.VERIFIED_ROLE_ID)) {
+        highestLevelRoleName = 'Membro';
+      }
+
+      // --- INÍCIO DA GERAÇÃO DA IMAGEM ---
+      const backgroundPath = path.join(__dirname, '..', '..', 'assets', 'rank_bg.png');
       const avatarUrl = targetUser.displayAvatarURL({ extension: 'png', size: 256 });
       const avatarResponse = await axios.get(avatarUrl, { responseType: 'arraybuffer' });
       const avatarBuffer = Buffer.from(avatarResponse.data, 'binary');
 
-      const avatarSize = 160; // Tamanho do avatar redondo
+      const avatarSize = 160;
       const circleMask = Buffer.from(
         `<svg><circle cx="${avatarSize / 2}" cy="${avatarSize / 2}" r="${avatarSize / 2}" /></svg>`
       );
@@ -94,17 +111,15 @@ module.exports = {
       }" ry="${progressBarHeight / 2}" fill="#484b4e" />
                     <rect x="0" y="0" width="${currentProgressWidth}" height="${progressBarHeight}" rx="${
         progressBarHeight / 2
-      }" ry="${progressBarHeight / 2}" fill="#0099ff" />
+      }" ry="${progressBarHeight / 2}" fill="${roleColor}" />
                     <text x="50%" y="50%" dy="0.35em" text-anchor="middle" font-family="'Segoe UI', sans-serif" font-size="24px" fill="white" font-weight="bold">
                         ${userDb.xp.toLocaleString('pt-BR')} / ${requiredXp.toLocaleString(
         'pt-BR'
       )} XP
                     </text>
-                </svg>
-            `;
+                </svg>`;
       const progressBarBuffer = Buffer.from(progressBarSvg);
 
-      // --- NOVO LAYOUT DO TEXTO SVG ---
       const textSvg = `
                 <svg width="700" height="100">
                     <style>
@@ -118,14 +133,11 @@ module.exports = {
                     <text x="680" y="75" class="value">${userDb.level}</text>
                     <text x="540" y="35" class="label">RANK</text>
                     <text x="540" y="75" class="value">#${rank}</text>
-                </svg>
-            `;
+                </svg>`;
       const textBuffer = Buffer.from(textSvg);
 
-      // --- MONTAGEM FINAL COM ALTURA REDUZIDA ---
-      const backgroundPath = path.join(__dirname, '..', '..', 'assets', 'rank_bg.png');
       const finalImageBuffer = await sharp(backgroundPath)
-        .resize(1000, 240) // ALTURA REDUZIDA AQUI
+        .resize(1000, 240)
         .composite([
           { input: statusRingBuffer, top: 31, left: 31 },
           { input: circledAvatarBuffer, top: 40, left: 40 },
@@ -136,7 +148,26 @@ module.exports = {
         .toBuffer();
 
       const attachment = new AttachmentBuilder(finalImageBuffer, { name: 'rank-card.png' });
-      await interaction.editReply({ files: [attachment] });
+
+      // --- CRIAÇÃO DO EMBED FINAL QUE "ENVOLVE" A IMAGEM ---
+      const rankEmbed = new EmbedBuilder()
+        .setColor(roleColor) // A cor do embed também será a cor do cargo
+        .setAuthor({
+          name: `Ficha de ${targetUser.username}`,
+          iconURL: targetUser.displayAvatarURL(),
+        })
+        .setImage('attachment://rank-card.png') // Anexa a imagem gerada
+        .addFields(
+          // Adiciona os novos campos de informação
+          { name: 'Patente Atual', value: highestLevelRoleName, inline: true },
+          {
+            name: 'Tempo de Serviço',
+            value: `<t:${Math.floor(targetMember.joinedTimestamp / 1000)}:R>`,
+            inline: true,
+          }
+        );
+
+      await interaction.editReply({ embeds: [rankEmbed], files: [attachment] });
     } catch (error) {
       console.error('Erro ao gerar o cartão de rank:', error);
       await interaction.editReply({

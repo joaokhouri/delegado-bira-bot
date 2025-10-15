@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -17,7 +17,7 @@ module.exports = {
       return interaction.reply({
         content:
           'Abraçar a si mesmo é um sinal de amor próprio, mas este comando é para os outros, campeão.',
-        ephemeral: true,
+        flags: [MessageFlags.Ephemeral],
       });
     }
 

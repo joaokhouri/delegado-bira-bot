@@ -25,7 +25,7 @@ module.exports = {
     const logEmbed = new EmbedBuilder()
       .setColor('#FFFF00') // Amarelo, para indicar uma modificação
       .setTitle('📝 RELATÓRIO DE OCORRÊNCIA')
-      .setDescription(`**Uma mensagem foi editada na comarca.**`)
+      .setDescription(`**Uma mensagem foi editada no chat.**`)
       .addFields(
         {
           name: 'Autor da Mensagem',

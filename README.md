@@ -1,47 +1,43 @@
-# 🤖 Delegado Bira - v2.0
+# 🤖 Delegado Bira - Bot para Discord (v2.1)
 
-Bot multifuncional para o servidor "Terreiro do Pai Alípio".
-
----
-
-## 🛡️ Comandos de Moderação
-
-- `/kick`, `/ban`, `/timeout`, `/clear`: Ações de punição básicas.
-- `/untimeout`, `/unban`: Ações para remover punições (unban via votação da staff).
-- `/warn`: Aplica uma advertência a um membro.
-- `/warnings`: Mostra o histórico de advertências de um membro.
-- `/report`: Permite que qualquer membro envie uma denúncia confidencial para a moderação.
-- `/enviar-regas`, `/painel-comandos`: Comandos de ADM para postar mensagens oficiais.
+Bot multifuncional para o servidor "Terreiro do Pai Alípio", com uma personalidade única de "guardinha gente fina" e informal.
 
 ---
 
-## ⚙️ Comandos de Utilidade
+## ✨ Funcionalidades Principais
 
-- `/ajuda`: Menu interativo com a lista de todos os comandos públicos.
-- `/userinfo`: Mostra a "ficha" de um membro.
-- `/serverinfo`: Mostra as estatísticas do servidor.
-- `/rank`: Gera um cartão visual com o nível e XP do membro.
-- `/leaderboard`: Mostra o ranking dos membros mais ativos.
-- `/sortear`: Sorteia um número.
+### 🛡️ Moderação e Segurança
 
----
+- **Kit de Punição Completo:** `/kick`, `/ban`, `/timeout`, `/clear`.
+- **Sistema de Perdão Avançado:** `/unban` com votação da staff e `/untimeout`.
+- **Sistema de Advertências:** `/warn` para aplicar advertências e `/warnings` para consultar o histórico de um membro.
+- **Sistema de Denúncias:** `/report` permite que qualquer membro envie uma denúncia confidencial para a moderação.
+- **Logs e Relatórios:** Logs detalhados para todas as ações de moderação (incluindo DMs para os punidos), mensagens apagadas e editadas, e saídas de membros.
+- **Automoderação com Supervisão Humana:** O Bira patrulha o chat e alerta a moderação sobre:
+  - Palavras Proibidas (com e sem contexto).
+  - Spam de Menções e CAPS LOCK (com memória).
+  - Links de Convite.
 
-## 🎉 Comandos de Diversão e Interação
+### 🏆 Engajamento da Comunidade
 
-- `/gado`, `/moeda`, `/comedia`, `/abraçar`: Comandos de interação social.
-- `/prender`, `/filosofo`, `/tweet`: Comandos que geram imagens customizadas.
+- **Sistema de XP & Cargos por Nível:** Membros ganham XP ao conversar e recebem cargos de "patente" automaticamente ao atingir certos níveis.
+- **Comandos de Ranking:** `/rank` com um cartão visual profissional e dinâmico, e `/leaderboard` com o Top 10.
+- **Anunciante da Twitch:** Anuncia automaticamente no Discord quando a live começa.
+- **Mural de Destaques (Starboard):** Imortaliza as melhores mensagens do servidor, votadas pela comunidade.
+- **Caixa de Sugestões:** O comando `/sugestao` permite que membros enviem ideias anonimamente para votação.
 
----
+### 🎨 Interação e Diversão
 
-## 🤖 Sistemas Automáticos e Personalidade
+- **Manipulação de Imagem:** Comandos que geram imagens customizadas como `/prender`, `/filosofo` e `/tweet`.
+- **Comandos Sociais:** Ferramentas de interação como `/gado`, `/moeda`, `/abraçar` e `/comedia`.
+- **Personalidade Reativa:** Responde a dezenas de gírias e frases específicas no chat com respostas aleatórias ou reações.
+- **Status Dinâmico:** A atividade do bot muda periodicamente para dar mais vida ao personagem.
 
-- **Anunciante da Twitch:** Anuncia no Discord quando a live na Twitch começa.
-- **Sistema de XP & Cargos por Nível:** Membros ganham XP ao conversar e recebem cargos automaticamente ao atingir certos níveis.
-- **Mural de Destaques (Starboard):** Imortaliza mensagens que recebem muitas reações ⭐.
-- **Automoderação com Supervisão Humana:**
-  - Detecta e alerta a moderação sobre: palavras proibidas (com e sem contexto), spam de menções e CAPS, e links de convite.
-- **Listener de Palavras-Chave:** O Bira reage e responde a gírias e frases específicas no chat.
-- **Status Dinâmico:** A atividade do bot muda periodicamente.
+### ⚙️ Utilidade & Servidor
+
+- **Manual de Operações:** Comando `/ajuda` interativo e filtrado por permissão.
+- **Consulta de Ficha:** `/userinfo` e `/serverinfo`.
+- **Comandos Administrativos:** `/enviar-regras` e `/painel-comandos`.
 - **Portão de Verificação:** Novos membros precisam aceitar as regras clicando em um botão para ganhar acesso ao servidor.
 
 ---
@@ -49,5 +45,5 @@ Bot multifuncional para o servidor "Terreiro do Pai Alípio".
 ## 🚀 Setup
 
 - Configurar os arquivos `.env`, `automodConfig.json` e `levelRolesConfig.json`.
-- Rodar `npm install`.
-- Rodar `node deploy-commands.js` para registrar os comandos.
+- Rodar `npm install` para instalar as dependências.
+- Rodar `node deploy-commands.js` para registrar/atualizar os comandos de barra (/).

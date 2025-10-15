@@ -84,7 +84,7 @@ module.exports = {
         logDescriptions[Math.floor(Math.random() * logDescriptions.length)];
 
       const kickLogEmbed = new EmbedBuilder()
-        .setColor('#fffb00ff')
+        .setColor('#FFFF00')
         .setTitle('⚖️ RELATÓRIO DE EXPULSÃO')
         .setDescription(randomLogDescription)
         .addFields(

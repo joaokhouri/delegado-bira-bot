@@ -81,7 +81,7 @@ module.exports = {
 
       const logTitles = [
         '⚖️ RELATÓRIO DE BANIMENTO',
-        '🚨 CPF CANCELADO NA COMARCA',
+        '🚨 CPF CANCELADO NA BANCA',
         '🚫 ACESSO REVOGADO',
       ];
       const randomLogTitle = logTitles[Math.floor(Math.random() * logTitles.length)];

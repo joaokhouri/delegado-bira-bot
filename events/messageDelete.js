@@ -26,7 +26,7 @@ module.exports = {
     const logEmbed = new EmbedBuilder()
       .setColor('#FFA500') // Laranja, para um tom de alerta/aviso
       .setTitle('📝 RELATÓRIO DE OCORRÊNCIA')
-      .setDescription(`**Uma mensagem foi apagada da comarca.**`)
+      .setDescription(`**Uma mensagem foi apagada do chat.**`)
       .addFields(
         {
           name: 'Autor da Mensagem',
